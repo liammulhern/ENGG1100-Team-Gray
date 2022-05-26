@@ -1,6 +1,6 @@
+#include <SparkFun_TB6612.h>
 #include <ESP32Servo.h>
 #include <ESP32PWM.h>
-#include <SparkFun_TB6612.h>
 #include <PS4Controller.h>
 #include <Stepper.h>
 #include <FastLED.h>
@@ -81,6 +81,21 @@ void loop() {
       drive_speed = map(PS4.LStickY(), -127, 128, -255 * SPEED_REDUCTION, 255 * SPEED_REDUCTION);
       forward(drive_motor_left, drive_motor_right, drive_speed);
     }
+    if(PS4.RStickY()) {
+      int RStickTemp = map(PS4.RStickY(), -127, 128, -3, 3);
+      if (abs(RStickTemp) > 1) {
+        servo_angle += RStickTemp / 2;
+        delay(25);
+      }
+    }
+    if (PS4.RStickX()) {
+      int RStickTemp = map(PS4.RStickX(), -127, 128, 3, -3);
+      if (abs(RStickTemp) > 1) {
+        stepper_angle += RStickTemp / 2;
+        stepper.step(RStickTemp / 2);
+        delay(1);
+      }
+    }
     
     if (PS4.Right()) {
       stepper_angle++;
@@ -111,8 +126,9 @@ void loop() {
       pump_drive(pump_speed);
     }
     else if(PS4.Circle()) {
-      Serial.println(pump_pressure[pump_mode]);
-      pump_speed = pump_pressure[pump_mode];
+      Serial.println(pump_mode % 4);
+      Serial.println(pump_pressure[pump_mode % 4]);
+      pump_speed = pump_pressure[pump_mode % 4];
       pump_drive(pump_speed);
     }
     else {
@@ -140,7 +156,7 @@ void loop() {
     if(PS4.R1()) {
       pump_mode++;
             
-      if(pump_mode>3) {
+      if(pump_mode>7) {
         pump_mode = 0;
       }
 
@@ -153,7 +169,7 @@ void loop() {
       pump_mode--;
             
       if(pump_mode<0) {
-        pump_mode = 2;
+        pump_mode = 6;
       }
 
       Serial.println(pump_mode);
@@ -228,17 +244,19 @@ void save_vars()
   Serial.print("Saving: ");
   Serial.println((int) pump_speed);
 
-  pump_pressure[pump_mode] = (int) pump_speed;
-  servo_angles[pump_mode] = servo_angle;
+  int pump_mode_temp = pump_mode % 4;
+
+  pump_pressure[pump_mode_temp] = (int) pump_speed;
+  servo_angles[pump_mode_temp] = servo_angle;
   
-  EEPROM.write(pump_mode, (int) pump_speed);
-  EEPROM.write(pump_mode+4, servo_angle);
+  EEPROM.write(pump_mode_temp, (int) pump_speed);
+  EEPROM.write(pump_mode_temp+4, servo_angle);
   EEPROM.commit();
 }
 
 void update_mode()
 {
-  servo_step(servo_angles[pump_mode]);
+  servo_step(servo_angles[pump_mode % 4]);
   
   if(pump_mode == 0) {
     PS4.setLed(0, 255, 0);
@@ -255,6 +273,21 @@ void update_mode()
   else if (pump_mode == 3) {
     PS4.setLed(255, 255, 0);
     fill_solid(status_leds, NUM_LEDS, CRGB::Magenta);
+  } else if(pump_mode == 4) {
+    PS4.setLed(0, 255, 0);
+    fill_solid_edit(CRGB::Green);
+  }
+  else if (pump_mode == 5) {
+    PS4.setLed(0, 0, 255);
+    fill_solid_edit(CRGB::Blue);
+  }
+  else if (pump_mode == 6) {
+    PS4.setLed(255, 0, 0);
+    fill_solid_edit(CRGB::Red);
+  }
+  else if (pump_mode == 7) {
+    PS4.setLed(255, 255, 0);
+    fill_solid_edit(CRGB::Magenta);
   }
 
   PS4.sendToController();  
@@ -331,4 +364,12 @@ void Strobe_Right(CRGB strobe_colour, int strobe_delay)
     FastLED.show();
     
     delay(strobe_delay);  
+}
+void fill_solid_edit(CRGB colour) {
+  FastLED.clear();
+
+  status_leds[0] = colour;
+  status_leds[1] = 0xFFFF00;
+
+  FastLED.show();
 }
