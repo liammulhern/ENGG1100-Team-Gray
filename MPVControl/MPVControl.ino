@@ -6,7 +6,7 @@
 #include <FastLED.h>
 #include <EEPROM.h>
 
-#define EEPROM_SIZE 12
+#define EEPROM_SIZE 8
 
 #define SERVO_TILT 32
 #define PUMP 33
@@ -126,6 +126,7 @@ void loop() {
       pump_drive(pump_speed);
     }
     else if(PS4.Circle()) {
+      Serial.println(pump_mode % 4);
       Serial.println(pump_pressure[pump_mode % 4]);
       pump_speed = pump_pressure[pump_mode % 4];
       pump_drive(pump_speed);
